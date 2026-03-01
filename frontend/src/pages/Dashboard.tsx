@@ -70,7 +70,7 @@ function Dashboard() {
     if (!email) return;
 
     axios
-      .get(`https://api-rim6ljimuq-uc.a.run.app/tickets/${email}`)
+      .get(`https://api-rim6ljimuq-uc.a.run.app/sesson/all-tickets/${email}`)
       .then((res) => {
         console.log("Fetched tickets:", res.data.tickets);
         setTickets(res.data.tickets || []);
