@@ -99,7 +99,7 @@ function Dashboard() {
 
   const createdTickets = tickets.length;
   const solvedTickets = tickets.filter(
-    (t) => t.status?.toLowerCase() === "resolved"
+    (t) => t.status?.toLowerCase() === "resolved",
   ).length;
   const unsolvedTickets = createdTickets - solvedTickets;
 
@@ -138,12 +138,13 @@ function Dashboard() {
     const monthName = months[i];
 
     const created = tickets.filter(
-      (t) => getMonthFromTimestamp(t) === i
+      (t) => getMonthFromTimestamp(t) === i,
     ).length;
 
     const solved = tickets.filter(
       (t) =>
-        getMonthFromTimestamp(t) === i && t.status?.toLowerCase() === "resolved"
+        getMonthFromTimestamp(t) === i &&
+        t.status?.toLowerCase() === "resolved",
     ).length;
 
     return created > 0
