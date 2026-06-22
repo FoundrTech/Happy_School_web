@@ -3,6 +3,7 @@
 
 import {Request, Response} from "express";
 import admin from "../../config/firebase";
+import {filterByAcademicYear} from "../../utils/academicYear";
 
 const db = admin.firestore();
 
@@ -12,6 +13,7 @@ export const getcoordinatordashboardsummary = async (
   res: Response
 ): Promise<void> => {
   const {wingId} = req.params;
+  const {academicYear} = req.query;
 
   if (!wingId) {
     res.status(400).json({error: "wingId is required"});
@@ -78,37 +80,43 @@ export const getcoordinatordashboardsummary = async (
     const ticketsRef = db.collection("Tickets").doc(school).collection(school);
     const allTicketsSnap = await ticketsRef.get();
 
+    let allTickets: any[] = allTicketsSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // 3️⃣ Filter by academic year if provided
+    if (academicYear) {
+      allTickets = filterByAcademicYear(
+        allTickets,
+        String(academicYear),
+        (t) => t.timestamp
+      );
+    }
+
     let totalSessionsValue = 0;
     let earlyAdopterCount = 0;
     const teacherTickets: any[] = [];
 
-    allTicketsSnap.forEach((doc) => {
-      const data = doc.data();
-
-      // Sum one-on-one sessions
+    allTickets.forEach((data) => {
       if (typeof data.oneononesessions === "number") {
         totalSessionsValue += data.oneononesessions;
       }
 
-      // Early adopter count
       if (data.category === "Early Adopter") {
         earlyAdopterCount++;
       }
 
-      // Tickets belonging to wing teachers
       if (
         data.email &&
         teacherEmails.includes(String(data.email).toLowerCase())
       ) {
-        teacherTickets.push({
-          id: doc.id,
-          ...data,
-        });
+        teacherTickets.push(data);
       }
     });
 
     /**
-     * 3️⃣ Fetch school-level stats
+     * 4️⃣ Fetch school-level stats
      */
     const schoolSnap = await db
       .collection("Schools")
@@ -119,12 +127,13 @@ export const getcoordinatordashboardsummary = async (
     const schoolData = schoolSnap.empty ? {} : schoolSnap.docs[0].data();
 
     /**
-     * 4️⃣ Final response
+     * 5️⃣ Final response
      */
     res.status(200).json({
       message: "Coordinator dashboard summary fetched successfully",
       wingId,
       school,
+      academicYear: academicYear || "all",
       stats: {
         totalTeachers: teachers.length,
         totalTickets: teacherTickets.length,

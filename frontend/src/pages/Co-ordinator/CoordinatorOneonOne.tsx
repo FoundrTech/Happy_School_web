@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { FilterOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import { getCurrentAcademicYear } from "../../utils/academicYear";
+import AcademicYearFilter from "../../components/AcademicYearFilter";
 
 dayjs.extend(customParseFormat);
 const { Title } = Typography;
@@ -46,52 +48,44 @@ const CoordinatorOneonOne = () => {
   const wingId = localStorage.getItem("wingId");
 
   const [showFilters, setShowFilters] = useState(false);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState("");
   const [selectedTeacherEmail, setSelectedTeacherEmail] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedYear, setSelectedYear] = useState<string>(getCurrentAcademicYear());
 
   const toggleFilters = () => setShowFilters((prev) => !prev);
 
-  // ✅ Fetch teachers (excluding coordinators)
+  // Fetch teachers (excluding coordinators)
   useEffect(() => {
-    const email = localStorage.getItem("email");
-    if (!email) return;
+    if (!wingId) return;
 
     axios
-      .get(
-        // `http://localhost:5000/co-ordinator/teachers/${wingId}`
-        `https://api-rim6ljimuq-uc.a.run.app/co-ordinator/teachers/${wingId}`
-
-      )
+      .get(`https://api-rim6ljimuq-uc.a.run.app/co-ordinator/teachers/${wingId}`)
       .then((res) => {
         const fetched = res.data.teachers || [];
         const filtered = fetched.filter(
           (t: Teacher) => t.role?.toLowerCase() !== "co-ordinator"
         );
-        const sorted = filtered.sort(
-          (a: { coins: any }, b: { coins: any }) =>
-            (b.coins ?? 0) - (a.coins ?? 0)
+        setTeachers(
+          filtered.sort(
+            (a: { coins: any }, b: { coins: any }) => (b.coins ?? 0) - (a.coins ?? 0)
+          )
         );
-        setTeachers(sorted);
       })
       .catch((err) => console.error("Error fetching teachers:", err));
-  }, []);
+  }, [wingId]);
 
-  // ✅ Fetch teacher-related tickets
+  // Fetch teacher-related tickets with filters
   useEffect(() => {
     if (!email) return;
 
     const fetchFilteredTickets = async () => {
       setLoading(true);
       try {
-        const params = {
-          teacher: selectedTeacherEmail || undefined,
-          fromDate: fromDate || undefined,
-          toDate: toDate || undefined,
-          category: selectedCategory || undefined,
-        };
+        const params: Record<string, string> = {};
+        if (selectedTeacherEmail) params.teacher = selectedTeacherEmail;
+        if (selectedCategory) params.category = selectedCategory;
+        if (selectedYear) params.academicYear = selectedYear;
 
         const response = await axios.get(
           `https://api-rim6ljimuq-uc.a.run.app/oneonone/${email}`,
@@ -100,19 +94,20 @@ const CoordinatorOneonOne = () => {
 
         let fetched: Ticket[] = response.data.tickets || [];
 
-        // Filter to show only teacher-related tickets
+        // Filter to show only wing teacher tickets
         const teacherEmails = teachers.map((t) => t.email?.toLowerCase());
         fetched = fetched.filter((ticket) => {
           const ticketEmail = ticket.email?.toLowerCase();
           return ticketEmail && teacherEmails.includes(ticketEmail);
         });
 
-        const sorted = fetched.sort(
-          (a, b) =>
-            getTimestampAsDate(b.timestamp).getTime() -
-            getTimestampAsDate(a.timestamp).getTime()
+        setTickets(
+          fetched.sort(
+            (a, b) =>
+              getTimestampAsDate(b.timestamp).getTime() -
+              getTimestampAsDate(a.timestamp).getTime()
+          )
         );
-        setTickets(sorted);
       } catch (err) {
         console.error("Error fetching tickets:", err);
       } finally {
@@ -121,14 +116,7 @@ const CoordinatorOneonOne = () => {
     };
 
     fetchFilteredTickets();
-  }, [
-    email,
-    teachers,
-    selectedTeacherEmail,
-    fromDate,
-    toDate,
-    selectedCategory,
-  ]);
+  }, [email, teachers, selectedTeacherEmail, selectedCategory, selectedYear]);
 
   const renderTicketSubject = (text: string) => {
     if (text && text.length > 20) {
@@ -143,10 +131,7 @@ const CoordinatorOneonOne = () => {
             padding: "8px 12px",
             maxWidth: 400,
           }}
-          overlayInnerStyle={{
-            backgroundColor: "#ea580c",
-            color: "white",
-          }}
+          overlayInnerStyle={{ backgroundColor: "#ea580c", color: "white" }}
         >
           <span className="font-semibold text-indigo-600 text-sm sm:text-base cursor-pointer">
             {text.substring(0, 30)}...
@@ -242,10 +227,18 @@ const CoordinatorOneonOne = () => {
     },
   ];
 
-  // ✅ Mobile Card Layout
   const MobileTicketCard = ({ ticket }: { ticket: Ticket }) => (
     <div
-      onClick={() => navigate(`/showticket/${ticket.id}?school=${typeof (ticket as any).school === 'object' ? (ticket as any).school.SchoolName : (ticket as any).school}`, { state: { ticket } })}
+      onClick={() =>
+        navigate(
+          `/showticket/${ticket.id}?school=${
+            typeof (ticket as any).school === "object"
+              ? (ticket as any).school.SchoolName
+              : (ticket as any).school
+          }`,
+          { state: { ticket } }
+        )
+      }
       className="bg-white rounded-lg shadow-md p-4 mb-4 border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow"
     >
       <div className="mb-3">
@@ -281,15 +274,11 @@ const CoordinatorOneonOne = () => {
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div>
           <span className="text-gray-500">Created: </span>
-          <span className="text-gray-700">
-            {formatTimestamp(ticket.timestamp)}
-          </span>
+          <span className="text-gray-700">{formatTimestamp(ticket.timestamp)}</span>
         </div>
         <div className="text-right">
           <span className="text-gray-500">By: </span>
-          <span className="text-gray-700">
-            {ticket.userName || "Anonymous"}
-          </span>
+          <span className="text-gray-700">{ticket.userName || "Anonymous"}</span>
         </div>
       </div>
     </div>
@@ -297,7 +286,7 @@ const CoordinatorOneonOne = () => {
 
   return (
     <div className="min-h-screen p-3 sm:p-4 md:p-6">
-      {/* Title + Filters */}
+      {/* Title + Filter Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <Title level={2} className="text-orange-600 m-0 text-xl sm:text-2xl">
           Coordinator One-on-One Sessions{" "}
@@ -333,9 +322,9 @@ const CoordinatorOneonOne = () => {
                       .toLowerCase()
                       .includes(input.toLowerCase())
                   }
-                  value={selectedTeacher}
+                  value={selectedTeacher || undefined}
                   onChange={(value) => {
-                    setSelectedTeacher(value);
+                    setSelectedTeacher(value || "");
                     setSelectedTeacherEmail(
                       teachers.find((t) => t.email === value)?.email || ""
                     );
@@ -347,30 +336,6 @@ const CoordinatorOneonOne = () => {
                     </Select.Option>
                   ))}
                 </Select>
-              </div>
-
-              {/* Date Range */}
-              <div className="mb-4">
-                <label className="block text-sm text-gray-600 mb-1">
-                  Date Range
-                </label>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                  <input
-                    type="date"
-                    className="w-full sm:flex-1 border rounded-md px-3 py-2 text-sm text-gray-700"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                  />
-                  <span className="text-gray-500 text-sm whitespace-nowrap">
-                    to
-                  </span>
-                  <input
-                    type="date"
-                    className="w-full sm:flex-1 border rounded-md px-3 py-2 text-sm text-gray-700"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                  />
-                </div>
               </div>
 
               {/* Category */}
@@ -388,9 +353,7 @@ const CoordinatorOneonOne = () => {
                         type="checkbox"
                         checked={selectedCategory === cat}
                         onChange={() =>
-                          setSelectedCategory(
-                            selectedCategory === cat ? "" : cat
-                          )
+                          setSelectedCategory(selectedCategory === cat ? "" : cat)
                         }
                       />
                       <span className="ml-2">{cat}</span>
@@ -412,8 +375,6 @@ const CoordinatorOneonOne = () => {
                   onClick={() => {
                     setSelectedTeacher("");
                     setSelectedTeacherEmail("");
-                    setFromDate("");
-                    setToDate("");
                     setSelectedCategory("");
                     setShowFilters(false);
                   }}
@@ -432,6 +393,13 @@ const CoordinatorOneonOne = () => {
         </div>
       </div>
 
+      {/* Academic Year Filter */}
+      <AcademicYearFilter
+        selectedYear={selectedYear}
+        onChange={setSelectedYear}
+        className="mb-4"
+      />
+
       {/* Table / Mobile View */}
       {loading ? (
         <div className="flex justify-center py-20">
@@ -446,9 +414,17 @@ const CoordinatorOneonOne = () => {
               rowKey="id"
               pagination={{ pageSize: 8 }}
               bordered
+              locale={{ emptyText: `No sessions found for ${selectedYear}` }}
               onRow={(record) => ({
                 onClick: () =>
-                  navigate(`/showticket/${record.id}?school=${typeof (record as any).school === 'object' ? (record as any).school.SchoolName : (record as any).school}`, { state: { ticket: record } }),
+                  navigate(
+                    `/showticket/${record.id}?school=${
+                      typeof (record as any).school === "object"
+                        ? (record as any).school.SchoolName
+                        : (record as any).school
+                    }`,
+                    { state: { ticket: record } }
+                  ),
               })}
               className="cursor-pointer rounded-xl shadow-md bg-white"
             />
@@ -457,7 +433,7 @@ const CoordinatorOneonOne = () => {
           <div className="lg:hidden">
             {tickets.length === 0 ? (
               <div className="text-center py-10 text-gray-500">
-                No tickets found
+                No sessions found for {selectedYear}
               </div>
             ) : (
               tickets.map((ticket) => (

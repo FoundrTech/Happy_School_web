@@ -4,11 +4,13 @@
 
 import {Request, Response} from "express";
 import admin from "../config/firebase";
+import {shortToLongAcademicYear} from "../utils/academicYear";
 
 const db = admin.firestore();
 
 export const teacher = async (req: Request, res: Response): Promise<void> => {
   const email: string = req.params.email;
+  const {academicYear} = req.query as {academicYear?: string};
 
   try {
     const snapshot = await db
@@ -45,6 +47,23 @@ export const teacher = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Build name → points map from yearlyReports when academicYear is provided
+    const pointsMap = new Map<string, number>();
+    if (academicYear) {
+      const longYear = shortToLongAcademicYear(academicYear);
+      const reportsSnap = await db
+        .collection("yearlyReports")
+        .where("school", "==", school)
+        .where("academicYear", "==", longYear)
+        .get();
+      reportsSnap.docs.forEach((doc) => {
+        const d = doc.data();
+        if (d.name && typeof d.points === "number") {
+          pointsMap.set((d.name as string).trim().toLowerCase(), d.points);
+        }
+      });
+    }
+
     const teacherData = await Promise.all(
       teacherIds.map(async (id) => {
         const docRef = db
@@ -54,12 +73,20 @@ export const teacher = async (req: Request, res: Response): Promise<void> => {
           .doc("userinfo");
 
         const docSnap = await docRef.get();
+        if (!docSnap.exists) return null;
 
-        return docSnap.exists ? {id, ...docSnap.data()} : null;
+        const data = docSnap.data() as any;
+        const nameKey = ((data?.Name as string) || "").trim().toLowerCase();
+        const coins = academicYear
+          ? (pointsMap.get(nameKey) ?? 0)
+          : (data?.coins ?? 0);
+
+        return {id, ...data, coins};
       })
     );
 
-    const filteredTeacherData = teacherData.filter(Boolean);
+    const filteredTeacherData = (teacherData.filter(Boolean) as any[])
+      .sort((a, b) => (b.coins ?? 0) - (a.coins ?? 0));
 
     res.status(200).json({
       message: "Teachers fetched successfully",

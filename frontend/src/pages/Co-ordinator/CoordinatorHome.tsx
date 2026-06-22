@@ -3,30 +3,29 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
   PieChart,
   Pie,
   Cell,
+  Legend,
+  ResponsiveContainer,
 } from "recharts";
 import { Button, Card, Typography } from "antd";
 import jsPDF from "jspdf";
 import domtoimage from "dom-to-image";
+import { getAcademicYears, getCurrentAcademicYear } from "../../utils/academicYear";
+import AcademicYearFilter from "../../components/AcademicYearFilter";
 
 const { Title, Text } = Typography;
 
 const CoordinatorHome: React.FC = () => {
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedYear, setSelectedYear] = useState<string>(getCurrentAcademicYear());
   const dashboardRef = useRef<HTMLDivElement>(null);
 
   const cardStyle = { borderColor: "gray" };
-const wingId = localStorage.getItem('wingId')
+  const wingId = localStorage.getItem("wingId");
+
   const donutData = summary
     ? [
         { name: "Teachers", value: summary.totalTeachers || 0, color: "#6366f1" },
@@ -39,24 +38,22 @@ const wingId = localStorage.getItem('wingId')
     : [];
 
   useEffect(() => {
-    const email = localStorage.getItem("email");
-    if (!email) return;
+    if (!wingId) return;
+    setLoading(true);
+
+    const params: Record<string, string> = {};
+    if (selectedYear) params.academicYear = selectedYear;
 
     axios
-      .get(
-        `https://api-rim6ljimuq-uc.a.run.app/co-ordinator/summary/${wingId}`
-        // `  http://localhost:5000/co-ordinator/summary/${wingId}`
-
-      )
+      .get(`https://api-rim6ljimuq-uc.a.run.app/co-ordinator/summary/${wingId}`, { params })
       .then((res) => {
         setSummary(res.data.stats);
-        setLoading(false);
       })
       .catch((err) => {
         console.error("Error fetching coordinator summary:", err);
-        setLoading(false);
-      });
-  }, []);
+      })
+      .finally(() => setLoading(false));
+  }, [wingId, selectedYear]);
 
   const handleExportPDF = async () => {
     if (!dashboardRef.current) return;
@@ -71,7 +68,7 @@ const wingId = localStorage.getItem('wingId')
           const width = pdf.internal.pageSize.getWidth();
           const height = (img.height * width) / img.width;
           pdf.addImage(img, "PNG", 0, 0, width, height);
-          pdf.save("coordinator-dashboard.pdf");
+          pdf.save(`coordinator-dashboard-${selectedYear}.pdf`);
         };
       };
       reader.readAsDataURL(blob);
@@ -90,8 +87,8 @@ const wingId = localStorage.getItem('wingId')
 
   return (
     <div className="p-6" ref={dashboardRef}>
-      <div className="flex justify-between items-center mb-4">
-        <Title level={2}>Coordinator Dashboard</Title>
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+        <Title level={2} style={{ margin: 0 }}>Coordinator Dashboard</Title>
         <Button
           type="primary"
           onClick={handleExportPDF}
@@ -101,6 +98,13 @@ const wingId = localStorage.getItem('wingId')
           Export Report
         </Button>
       </div>
+
+      {/* Academic Year Filter */}
+      <AcademicYearFilter
+        selectedYear={selectedYear}
+        onChange={setSelectedYear}
+        className="mb-6"
+      />
 
       {/* Cards Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -138,7 +142,7 @@ const wingId = localStorage.getItem('wingId')
       </div>
 
       {/* Donut Chart Section */}
-      <Title level={4}>Coordinator Summary Overview</Title>
+      <Title level={4}>Coordinator Summary Overview — {selectedYear}</Title>
       <ResponsiveContainer width="100%" height={400}>
         <PieChart>
           <Pie

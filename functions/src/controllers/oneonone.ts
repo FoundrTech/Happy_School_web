@@ -3,8 +3,8 @@
 
 import {Request, Response} from "express";
 import {db} from "../config/firebase";
+import {filterByAcademicYear, timestampToMs} from "../utils/academicYear";
 
-// Define interfaces based on actual response data
 interface FirestoreTimestamp {
   _seconds: number;
   _nanoseconds: number;
@@ -33,10 +33,10 @@ interface Ticket {
   status: string;
   contributors?: Contributor[];
   category?: string;
-  teacher?: TeacherObject | string; // Can be either object or string
+  teacher?: TeacherObject | string;
   reply?: string;
   meetinglink?: string;
-  [key: string]: unknown; // For any additional properties
+  [key: string]: unknown;
 }
 
 interface UserData {
@@ -49,7 +49,7 @@ export const oneononecontroller = async (
   res: Response
 ): Promise<void> => {
   const email: string = req.params.email;
-  const {teacher, status, fromDate, toDate, category} = req.query;
+  const {teacher, status, fromDate, toDate, category, academicYear} = req.query;
 
   try {
     // 1) Get the requesting user's school
@@ -85,15 +85,33 @@ export const oneononecontroller = async (
       ...doc.data(),
     })) as Ticket[];
 
-    // ✅ Extra condition: only tickets with oneononesessions > 0
+    // Only tickets with oneononesessions > 0
     tickets = tickets.filter(
       (t) => t.oneononesessions && t.oneononesessions > 0
     );
 
-    // Apply the same filters as TicketController
+    // 3) Academic year filter (takes precedence over manual fromDate/toDate)
+    if (academicYear) {
+      tickets = filterByAcademicYear(
+        tickets,
+        String(academicYear),
+        (t) => t.timestamp
+      ) as Ticket[];
+    } else if (fromDate || toDate) {
+      const from = fromDate ? new Date(String(fromDate)).getTime() : -Infinity;
+      const to = toDate ? new Date(String(toDate)).getTime() : Infinity;
+
+      tickets = tickets.filter((t) => {
+        if (!t.timestamp) return false;
+        const ms = timestampToMs(t.timestamp);
+        if (ms === null) return false;
+        return ms >= from && ms <= to;
+      });
+    }
+
+    // 4) Other filters
     if (teacher) {
       tickets = tickets.filter((t) => {
-        // Handle both string and object teacher formats
         if (typeof t.teacher === "string") {
           return t.teacher.toLowerCase() === String(teacher).toLowerCase();
         } else if (t.teacher && typeof t.teacher === "object" && "email" in t.teacher) {
@@ -116,23 +134,9 @@ export const oneononecontroller = async (
       );
     }
 
-    if (fromDate || toDate) {
-      tickets = tickets.filter((t) => {
-        if (!t.timestamp) return false;
-
-        // Convert Firestore timestamp to milliseconds
-        const time = t.timestamp._seconds * 1000 + t.timestamp._nanoseconds / 1000000;
-        const from = fromDate ?
-          new Date(String(fromDate)).getTime() :
-          -Infinity;
-        const to = toDate ? new Date(String(toDate)).getTime() : Infinity;
-
-        return time >= from && time <= to;
-      });
-    }
-
     res.status(200).json({
       message: "Tickets with oneononesessions > 0 fetched successfully",
+      academicYear: academicYear || "all",
       ticketCount: tickets.length,
       tickets,
     });

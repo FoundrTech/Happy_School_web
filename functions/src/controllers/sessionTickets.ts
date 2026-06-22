@@ -5,6 +5,7 @@
 import {Router, Request, Response} from "express";
 import {db} from "../config/firebase";
 import {Timestamp} from "firebase-admin/firestore";
+import {getAcademicYearRange} from "../utils/academicYear";
 // eslint-disable-next-line new-cap
 const router = Router();
 
@@ -93,7 +94,7 @@ const getTimestampValue = (timestamp: any): number => {
 
 router.get("/all-tickets/:email", async (req: Request, res: Response) => {
   const email: string = req.params.email;
-  const {teacher, status, fromDate, toDate, category} = req.query;
+  const {teacher, status, fromDate, toDate, category, academicYear} = req.query;
 
   try {
     const userInfoSnap = await db
@@ -171,18 +172,27 @@ router.get("/all-tickets/:email", async (req: Request, res: Response) => {
       );
     }
 
-    if (fromDate || toDate) {
+    if (academicYear) {
+      const range = getAcademicYearRange(String(academicYear));
+      if (range) {
+        tickets = tickets.filter((t) => {
+          const time = getTimestampValue((t as any).timestamp);
+          if (time === 0) return false;
+          return time >= range.from.getTime() && time <= range.to.getTime();
+        });
+      }
+    } else if (fromDate || toDate) {
       tickets = tickets.filter((t) => {
         const ticketTimestamp = (t as any).timestamp;
         const time = getTimestampValue(ticketTimestamp);
 
-        if (time === 0) return false; // Skip tickets without valid timestamp
+        if (time === 0) return false;
 
         const from = fromDate ?
           new Date(String(fromDate)).getTime() :
           -Infinity;
         const to = toDate ?
-          new Date(String(toDate)).setHours(23, 59, 59, 999) : // End of day for toDate
+          new Date(String(toDate)).setHours(23, 59, 59, 999) :
           Infinity;
 
         return time >= from && time <= to;

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable max-len */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {Request, Response} from "express";
 import admin from "../../config/firebase";
+import {shortToLongAcademicYear} from "../../utils/academicYear";
 
 const db = admin.firestore();
 
@@ -11,6 +11,7 @@ export const fetchteachers = async (
   res: Response
 ): Promise<void> => {
   const {wingId} = req.params;
+  const {academicYear} = req.query as {academicYear?: string};
 
   if (!wingId) {
     res.status(400).json({error: "Wing ID is required"});
@@ -18,7 +19,7 @@ export const fetchteachers = async (
   }
 
   try {
-    // 1️⃣ Query all teacher userinfo docs by wingId
+    // Query all teacher userinfo docs by wingId
     const teachersSnap = await db
       .collectionGroup("userinfo")
       .where("role", "==", "teacher")
@@ -32,13 +33,41 @@ export const fetchteachers = async (
       return;
     }
 
-    // 2️⃣ Build response
-    const teachers = teachersSnap.docs.map((doc) => ({
-      userId: doc.ref.parent.parent?.id, // Users/{userId}
+    const rawTeachers = teachersSnap.docs.map((doc) => ({
+      userId: doc.ref.parent.parent?.id,
       ...doc.data(),
-    }));
+    })) as any[];
 
-    // 3️⃣ Response
+    // Build name → points map from yearlyReports when academicYear is provided
+    const pointsMap = new Map<string, number>();
+    if (academicYear) {
+      const school = rawTeachers[0]?.school as string | undefined;
+      if (school) {
+        const longYear = shortToLongAcademicYear(academicYear);
+        const reportsSnap = await db
+          .collection("yearlyReports")
+          .where("school", "==", school)
+          .where("academicYear", "==", longYear)
+          .get();
+        reportsSnap.docs.forEach((doc) => {
+          const d = doc.data();
+          if (d.name && typeof d.points === "number") {
+            pointsMap.set((d.name as string).trim().toLowerCase(), d.points);
+          }
+        });
+      }
+    }
+
+    const teachers = rawTeachers
+      .map((t) => {
+        const nameKey = ((t.Name as string) || "").trim().toLowerCase();
+        const coins = academicYear
+          ? (pointsMap.get(nameKey) ?? 0)
+          : (t.coins ?? 0);
+        return {...t, coins};
+      })
+      .sort((a, b) => (b.coins ?? 0) - (a.coins ?? 0));
+
     res.status(200).json({
       message: "Teachers fetched successfully",
       wingId,

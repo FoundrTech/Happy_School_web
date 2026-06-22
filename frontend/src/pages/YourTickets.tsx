@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { FilterOutlined, PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import { getCurrentAcademicYear } from "../utils/academicYear";
+import AcademicYearFilter from "../components/AcademicYearFilter";
 dayjs.extend(customParseFormat);
 const { Title } = Typography;
 
@@ -50,6 +52,7 @@ function YourTickets() {
   const [selectedTeacher, setSelectedTeacher] = useState("");
   const [selectedTeacherEmail, setSelectedTeacherEmail] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedYear, setSelectedYear] = useState<string>(getCurrentAcademicYear());
 
   const toggleFilters = () => setShowFilters((prev) => !prev);
 
@@ -114,17 +117,17 @@ function YourTickets() {
     const fetchFilteredTickets = async () => {
       setLoading(true);
       try {
-        const params = {
-          status: selectedStatus || undefined,
-          teacher: selectedTeacherEmail || undefined,
-          fromDate: fromDate || undefined,
-          toDate: toDate || undefined,
-          category: selectedCategory || undefined,
-        };
+        const params: Record<string, string> = {};
+        if (selectedStatus) params.status = selectedStatus;
+        if (selectedTeacherEmail) params.teacher = selectedTeacherEmail;
+        if (selectedCategory) params.category = selectedCategory;
+        if (selectedYear) params.academicYear = selectedYear;
+        // Manual date range only when no academic year override
+        if (!selectedYear && fromDate) params.fromDate = fromDate;
+        if (!selectedYear && toDate) params.toDate = toDate;
 
         const response = await axios.get(
           `https://api-rim6ljimuq-uc.a.run.app/sesson/all-tickets/${email}`,
-          // `http://localhost:5000/getTickets/alltickets/${email}`,
           { params }
         );
         const fetched = response.data.tickets || [];
@@ -146,6 +149,7 @@ function YourTickets() {
     toDate,
     selectedCategory,
     selectedTeacherEmail,
+    selectedYear,
   ]);
 
   useEffect(() => {
@@ -400,6 +404,12 @@ function YourTickets() {
             </button>
           </div>
         </div>
+
+        <AcademicYearFilter
+          selectedYear={selectedYear}
+          onChange={setSelectedYear}
+          className="mt-1"
+        />
 
         {showFilters && (
           <div className="relative sm:absolute sm:top-12 sm:right-0 mt-2 w-full sm:w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4">

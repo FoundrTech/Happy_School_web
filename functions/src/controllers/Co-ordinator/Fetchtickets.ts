@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable max-len */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {Request, Response} from "express";
 import admin from "../../config/firebase";
+import {filterByAcademicYear, timestampToMs} from "../../utils/academicYear";
 
 const db = admin.firestore();
 
 export const fetchtickets = async (req: Request, res: Response): Promise<void> => {
   const {wingId} = req.params;
-  const {teacher, status, fromDate, toDate, category} = req.query;
+  const {teacher, status, fromDate, toDate, category, academicYear} = req.query;
 
   if (!wingId) {
     res.status(400).json({error: "Wing ID is required"});
@@ -71,50 +71,50 @@ export const fetchtickets = async (req: Request, res: Response): Promise<void> =
         school,
         ...doc.data(),
       }))
-      // ✅ Match ticket email with teacher/coordinator emails
       .filter((t: any) =>
         t.email && allowedEmails.has(t.email.toLowerCase())
       );
 
-    // 5️⃣ Optional filters
+    // 5️⃣ Academic year filter (takes precedence over manual fromDate/toDate)
+    if (academicYear) {
+      tickets = filterByAcademicYear(tickets, String(academicYear), (t: any) => t.timestamp);
+    } else if (fromDate || toDate) {
+      const from = fromDate ? new Date(String(fromDate)).getTime() : -Infinity;
+      const to = toDate ? new Date(String(toDate)).getTime() : Infinity;
+
+      tickets = tickets.filter((t: any) => {
+        if (!t.timestamp) return false;
+        const ms = timestampToMs(t.timestamp);
+        if (ms === null) return false;
+        return ms >= from && ms <= to;
+      });
+    }
+
+    // 6️⃣ Other optional filters
     if (teacher) {
       tickets = tickets.filter(
-        (t: any) =>
-          t.email?.toLowerCase() === String(teacher).toLowerCase()
+        (t: any) => t.email?.toLowerCase() === String(teacher).toLowerCase()
       );
     }
 
     if (status) {
       tickets = tickets.filter(
-        (t: any) =>
-          t.status?.toLowerCase() === String(status).toLowerCase()
+        (t: any) => t.status?.toLowerCase() === String(status).toLowerCase()
       );
     }
 
     if (category) {
       tickets = tickets.filter(
-        (t: any) =>
-          t.category?.toLowerCase() === String(category).toLowerCase()
+        (t: any) => t.category?.toLowerCase() === String(category).toLowerCase()
       );
     }
 
-    if (fromDate || toDate) {
-      tickets = tickets.filter((t: any) => {
-        if (!t.timestamp) return false;
-
-        const time = new Date(t.timestamp).getTime();
-        const from = fromDate ? new Date(String(fromDate)).getTime() : -Infinity;
-        const to = toDate ? new Date(String(toDate)).getTime() : Infinity;
-
-        return time >= from && time <= to;
-      });
-    }
-
-    // 6️⃣ Response
+    // 7️⃣ Response
     res.status(200).json({
       message: "Tickets fetched successfully",
       wingId,
       school,
+      academicYear: academicYear || "all",
       totalTickets: tickets.length,
       tickets,
     });

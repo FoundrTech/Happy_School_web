@@ -17,6 +17,8 @@ import {
   DownloadOutlined,
 } from "@ant-design/icons";
 import * as XLSX from "xlsx";
+import { getCurrentAcademicYear } from "../utils/academicYear";
+import AcademicYearFilter from "../components/AcademicYearFilter";
 
 const { Title } = Typography;
 
@@ -37,6 +39,7 @@ function Teachers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedYear, setSelectedYear] = useState<string>(getCurrentAcademicYear());
   const pageSize = 8;
 
   useEffect(() => {
@@ -44,7 +47,9 @@ function Teachers() {
     if (!email) return;
 
     axios
-      .get(`https://api-rim6ljimuq-uc.a.run.app/teachers/${email}`)
+      .get(`https://api-rim6ljimuq-uc.a.run.app/teachers/${email}`, {
+        params: { academicYear: selectedYear },
+      })
       .then((res) => {
         const fetched = res.data.teachers || [];
         const sorted = fetched.sort(
@@ -54,7 +59,7 @@ function Teachers() {
       })
       .catch((err) => console.error("Error fetching teachers:", err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedYear]);
 
   const filtered = teachers.filter((t) => {
     const term = searchTerm.toLowerCase();
@@ -270,6 +275,13 @@ function Teachers() {
           Download List
         </Button>
       </div>
+
+      {/* Academic Year Filter */}
+      <AcademicYearFilter
+        selectedYear={selectedYear}
+        onChange={setSelectedYear}
+        className="mb-4"
+      />
 
       {/* Search */}
       <Input

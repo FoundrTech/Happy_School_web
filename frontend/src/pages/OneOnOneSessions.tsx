@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { FilterOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import { getCurrentAcademicYear } from "../utils/academicYear";
+import AcademicYearFilter from "../components/AcademicYearFilter";
 dayjs.extend(customParseFormat);
 const { Title } = Typography;
 
@@ -50,6 +52,7 @@ function OneOnOneSessions() {
   const [selectedTeacher, setSelectedTeacher] = useState("");
   const [selectedTeacherEmail, setSelectedTeacherEmail] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedYear, setSelectedYear] = useState<string>(getCurrentAcademicYear());
 
   const renderTicketSubject = (text: string) => {
     if (text && text.length > 20) {
@@ -90,13 +93,11 @@ function OneOnOneSessions() {
     const fetchFilteredTickets = async () => {
       setLoading(true);
       try {
-        const params = {
-          status: selectedStatus || undefined,
-          teacher: selectedTeacherEmail || undefined,
-          fromDate: fromDate || undefined,
-          toDate: toDate || undefined,
-          category: selectedCategory || undefined,
-        };
+        const params: Record<string, string> = {};
+        if (selectedStatus) params.status = selectedStatus;
+        if (selectedTeacherEmail) params.teacher = selectedTeacherEmail;
+        if (selectedCategory) params.category = selectedCategory;
+        if (selectedYear) params.academicYear = selectedYear;
 
         const response = await axios.get(
           `https://api-rim6ljimuq-uc.a.run.app/oneonone/${email}`,
@@ -127,6 +128,7 @@ function OneOnOneSessions() {
     toDate,
     selectedCategory,
     selectedTeacherEmail,
+    selectedYear,
   ]);
 
   useEffect(() => {
@@ -294,7 +296,7 @@ function OneOnOneSessions() {
   return (
     <div className="min-h-screen p-3 sm:p-4 md:p-6">
       {/* Title + Filter Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
         <Title level={2} className="text-orange-600 m-0 text-xl sm:text-2xl">
           One - One Sessions{" "}
           <span className="text-gray-500 text-base sm:text-lg">
@@ -450,6 +452,13 @@ function OneOnOneSessions() {
           )}
         </div>
       </div>
+
+      {/* Academic Year Filter */}
+      <AcademicYearFilter
+        selectedYear={selectedYear}
+        onChange={setSelectedYear}
+        className="mb-4"
+      />
 
       {loading ? (
         <div className="flex justify-center py-20">

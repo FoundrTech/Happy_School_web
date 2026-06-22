@@ -18,6 +18,8 @@ import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
+import { getCurrentAcademicYear } from "../../utils/academicYear";
+import AcademicYearFilter from "../../components/AcademicYearFilter";
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -42,6 +44,7 @@ const CoordinatorTickets = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>();
   const [selectedCategory, setSelectedCategory] = useState<string>();
+  const [selectedYear, setSelectedYear] = useState<string>(getCurrentAcademicYear());
 
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -52,7 +55,6 @@ const CoordinatorTickets = () => {
 
   const navigate = useNavigate();
 
-  // 🔹 Format Firestore timestamp
   const formatTimestamp = (t: any) => {
     if (!t) return "N/A";
     if (t._seconds) {
@@ -61,23 +63,21 @@ const CoordinatorTickets = () => {
     return dayjs(t).format("DD/MM/YYYY hh:mm A");
   };
 
-  // 🔹 FETCH TICKETS (FIXED LOADING LOGIC)
   useEffect(() => {
     if (!wingId) {
-      setLoading(false); // ✅ prevent infinite spinner
+      setLoading(false);
       return;
     }
 
     const fetchTickets = async () => {
       setLoading(true);
       try {
-        const params = {
-          status: selectedStatus || undefined,
-          category: selectedCategory || undefined,
-        };
+        const params: Record<string, string> = {};
+        if (selectedStatus) params.status = selectedStatus;
+        if (selectedCategory) params.category = selectedCategory;
+        if (selectedYear) params.academicYear = selectedYear;
 
         const res = await axios.get(
-          // `http://localhost:5000/co-ordinator/tickets/${wingId}`,
           `https://api-rim6ljimuq-uc.a.run.app/co-ordinator/tickets/${wingId}`,
           { params }
         );
@@ -87,14 +87,13 @@ const CoordinatorTickets = () => {
         console.error(err);
         message.error("Failed to fetch tickets");
       } finally {
-        setLoading(false); // ✅ always stops spinner
+        setLoading(false);
       }
     };
 
     fetchTickets();
-  }, [selectedStatus, selectedCategory, wingId]);
+  }, [selectedStatus, selectedCategory, selectedYear, wingId]);
 
-  // 🔹 CREATE TICKET
   const handleSubmit = async (values: any) => {
     if (!email || !school) {
       message.error("Missing user info");
@@ -128,7 +127,7 @@ const CoordinatorTickets = () => {
   return (
     <div style={{ padding: isMobile ? 14 : 24, background: "#fff" }}>
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
         <Title level={isMobile ? 4 : 3}>
           Tickets ({tickets.length})
         </Title>
@@ -152,7 +151,14 @@ const CoordinatorTickets = () => {
         </div>
       </div>
 
-      {/* FILTERS */}
+      {/* ACADEMIC YEAR FILTER */}
+      <AcademicYearFilter
+        selectedYear={selectedYear}
+        onChange={setSelectedYear}
+        className="mb-4"
+      />
+
+      {/* STATUS / CATEGORY FILTERS */}
       {showFilters && (
         <div className="mb-4 border p-4 rounded-lg shadow-sm w-72">
           <label>Status</label>
@@ -186,14 +192,21 @@ const CoordinatorTickets = () => {
             <Spin size="large" />
           </div>
         ) : tickets.length === 0 ? (
-          <p>No tickets found.</p>
+          <p>No tickets found for {selectedYear}.</p>
         ) : (
           tickets.map((t) => (
             <Card
               key={t.id}
               className="mb-3 cursor-pointer"
               onClick={() =>
-                navigate(`/showticket/${t.id}?school=${typeof (t as any).school === 'object' ? (t as any).school.SchoolName : (t as any).school}`, { state: { ticket: t } })
+                navigate(
+                  `/showticket/${t.id}?school=${
+                    typeof (t as any).school === "object"
+                      ? (t as any).school.SchoolName
+                      : (t as any).school
+                  }`,
+                  { state: { ticket: t } }
+                )
               }
             >
               <div className="font-semibold text-blue-600">
@@ -208,8 +221,8 @@ const CoordinatorTickets = () => {
                     t.status === "Resolved"
                       ? "green"
                       : t.status === "Ticket Raised"
-                        ? "orange"
-                        : "blue"
+                      ? "orange"
+                      : "blue"
                   }
                 >
                   {t.status || "Pending"}
@@ -236,9 +249,7 @@ const CoordinatorTickets = () => {
               render: (text: string) => (
                 <Tooltip title={text}>
                   <span className="font-medium text-blue-600">
-                    {text.length > 40
-                      ? text.substring(0, 40) + "..."
-                      : text}
+                    {text.length > 40 ? text.substring(0, 40) + "..." : text}
                   </span>
                 </Tooltip>
               ),
@@ -253,8 +264,8 @@ const CoordinatorTickets = () => {
                     status === "Resolved"
                       ? "green"
                       : status === "Ticket Raised"
-                        ? "orange"
-                        : "blue"
+                      ? "orange"
+                      : "blue"
                   }
                 >
                   {status || "Pending"}
@@ -272,18 +283,24 @@ const CoordinatorTickets = () => {
               dataIndex: "category",
               key: "category",
               render: (cat: string) => (
-                <Tag color={cat === "Teacher" ? "green" : "blue"}>
-                  {cat}
-                </Tag>
+                <Tag color={cat === "Teacher" ? "green" : "blue"}>{cat}</Tag>
               ),
             },
           ]}
           dataSource={tickets}
           rowKey="id"
           loading={loading}
+          locale={{ emptyText: `No tickets found for ${selectedYear}` }}
           onRow={(record) => ({
             onClick: () =>
-              navigate(`/showticket/${record.id}?school=${typeof (record as any).school === 'object' ? (record as any).school.SchoolName : (record as any).school}`, { state: { ticket: record } }),
+              navigate(
+                `/showticket/${record.id}?school=${
+                  typeof (record as any).school === "object"
+                    ? (record as any).school.SchoolName
+                    : (record as any).school
+                }`,
+                { state: { ticket: record } }
+              ),
           })}
         />
       )}

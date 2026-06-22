@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import {
   PieChart,
@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import * as XLSX from "xlsx";
+import { getCurrentAcademicYear } from "../../utils/academicYear";
+import AcademicYearFilter from "../../components/AcademicYearFilter";
 
 interface Teacher {
   Name: string;
@@ -25,29 +27,30 @@ const CoordinatorUnanswered = () => {
     challengeId: string;
     taskName: string;
   }>();
+  const [searchParams] = useSearchParams();
 
   const decodedTaskName = decodeURIComponent(taskName || "");
   const [answeredTeachers, setAnsweredTeachers] = useState<Teacher[]>([]);
   const [unansweredTeachers, setUnansweredTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const wingId = localStorage.getItem('wingId');
+  const [selectedYear, setSelectedYear] = useState<string>(
+    searchParams.get("academicYear") || getCurrentAcademicYear()
+  );
+  const wingId = localStorage.getItem("wingId");
 
   useEffect(() => {
     const email = localStorage.getItem("email");
     if (!email || !challengeId || !decodedTaskName) return;
 
-    const trimmedTaskName = decodedTaskName;
-
     const fetchData = async () => {
+      setLoading(true);
       try {
         const teacherRes = await axios.get(
-          // `http://localhost:5000/co-ordinator/teachers/${wingId}`
-              `https://api-rim6ljimuq-uc.a.run.app/co-ordinator/teachers/${wingId}`
+          `https://api-rim6ljimuq-uc.a.run.app/co-ordinator/teachers/${wingId}`
         );
 
         const allTeachers: Teacher[] = teacherRes.data.teachers || [];
-        console.log("Teachers fetched:", allTeachers);
 
         // Filter out coordinators
         const filteredTeachers = allTeachers.filter(
@@ -56,31 +59,26 @@ const CoordinatorUnanswered = () => {
 
         const docRes = await axios.get(
           `https://api-rim6ljimuq-uc.a.run.app/task-ans/${challengeId}/${encodeURIComponent(
-            trimmedTaskName
+            decodedTaskName
           )}`
         );
 
         const answeredEmails: string[] = docRes.data.documentNames || [];
-        console.log("Answered Emails:", answeredEmails);
 
         const answered: Teacher[] = [];
         const unanswered: Teacher[] = [];
 
         filteredTeachers.forEach((teacher) => {
-          const email = teacher.email?.trim()?.toLowerCase();
-          if (answeredEmails.includes(email)) {
+          const teacherEmail = teacher.email?.trim()?.toLowerCase();
+          if (answeredEmails.includes(teacherEmail)) {
             answered.push(teacher);
           } else {
             unanswered.push(teacher);
           }
         });
 
-        setAnsweredTeachers(
-          answered.sort((a, b) => (b.coins ?? 0) - (a.coins ?? 0))
-        );
-        setUnansweredTeachers(
-          unanswered.sort((a, b) => (b.coins ?? 0) - (a.coins ?? 0))
-        );
+        setAnsweredTeachers(answered.sort((a, b) => (b.coins ?? 0) - (a.coins ?? 0)));
+        setUnansweredTeachers(unanswered.sort((a, b) => (b.coins ?? 0) - (a.coins ?? 0)));
       } catch (err) {
         console.error("Error:", err);
         setError("Failed to fetch data.");
@@ -90,16 +88,13 @@ const CoordinatorUnanswered = () => {
     };
 
     fetchData();
-  }, [challengeId, decodedTaskName]);
+  }, [challengeId, decodedTaskName, wingId, selectedYear]);
 
   const handleDownloadExcel = () => {
     if (answeredTeachers.length === 0 && unansweredTeachers.length === 0) {
       alert("No data available to download yet!");
       return;
     }
-
-    console.log("Answered:", answeredTeachers);
-    console.log("Unanswered:", unansweredTeachers);
 
     const answeredData = [
       ["Name", "Email", "Coins"],
@@ -123,10 +118,11 @@ const CoordinatorUnanswered = () => {
       "Unanswered Teachers"
     );
 
-    XLSX.writeFile(workbook, `Task_Report_${decodedTaskName || "Report"}.xlsx`, {
-      bookType: "xlsx",
-      type: "binary",
-    });
+    XLSX.writeFile(
+      workbook,
+      `Task_Report_${decodedTaskName || "Report"}_${selectedYear}.xlsx`,
+      { bookType: "xlsx", type: "binary" }
+    );
   };
 
   const renderTeacherList = (teachers: Teacher[]) => (
@@ -153,9 +149,17 @@ const CoordinatorUnanswered = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+      <h2 className="text-3xl font-bold text-gray-800 mb-4 text-center">
         Task: {decodedTaskName}
       </h2>
+
+      {/* Academic Year Filter */}
+      <div className="flex justify-center mb-6">
+        <AcademicYearFilter
+          selectedYear={selectedYear}
+          onChange={setSelectedYear}
+        />
+      </div>
 
       {loading ? (
         <div className="flex justify-center items-center h-40">
@@ -167,9 +171,10 @@ const CoordinatorUnanswered = () => {
         <>
           {/* Pie Chart Section */}
           <div className="bg-white p-6 rounded-xl shadow-lg mb-8 max-w-xl mx-auto">
-            <h3 className="text-xl font-semibold text-center mb-4">
+            <h3 className="text-xl font-semibold text-center mb-1">
               Completion Overview
             </h3>
+            <p className="text-center text-sm text-gray-500 mb-4">{selectedYear}</p>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -181,7 +186,7 @@ const CoordinatorUnanswered = () => {
                   label={({ name, value }) =>
                     `${name}: ${(
                       ((value ?? 0) /
-                        (answeredTeachers.length + unansweredTeachers.length)) *
+                        (answeredTeachers.length + unansweredTeachers.length || 1)) *
                       100
                     ).toFixed(1)}%`
                   }
