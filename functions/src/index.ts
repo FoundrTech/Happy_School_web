@@ -32,6 +32,7 @@ import coordinatordashboard from "./routers/Co-ordinator/Coordinatordashboard";
 import Fetchtickets from "./routers/Co-ordinator/Fetchtickets";
 import Fetchteacher from "./routers/Co-ordinator/Fetchteachers";
 import passwordreset from "./controllers/passwordreset";
+import createTeacher from "./controllers/createTeacher";
 import {processBulkUpload} from "./controllers/bulkUploadTrigger";
 
 setGlobalOptions({maxInstances: 10});
@@ -75,6 +76,7 @@ app.use("/co-ordinator/teachers", Fetchteacher);
 app.use("/co-ordinator/tickets", Fetchtickets);
 app.use("/co-ordinator", coordinatordashboard);
 app.use("/auth", passwordreset);
+app.use("/auth", createTeacher);
 
 export const api = onRequest({secrets: [WEB_API_KEY, JWT_SECRET]}, app);
 export const onBulkUpload = processBulkUpload;
