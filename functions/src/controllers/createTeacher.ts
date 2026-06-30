@@ -7,7 +7,7 @@ import { Resend } from "resend";
 import { WEB_API_KEY } from "./login";
 
 // ── Change sender to your verified Resend domain when ready ──────────────────
-const RESEND_FROM = "Happy School <onboarding@resend.dev>";
+const RESEND_FROM = "Happy School <info@happyschoolculture.com>";
 const resendClient = new Resend("re_6SQQ5ErB_MzGqamnMpsXshwiBdnNSzfvj");
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -50,6 +50,16 @@ function welcomeEmailHtml(
         This link expires in <strong>24 hours</strong>.
         If you didn't expect this email, you can safely ignore it.
       </p>
+      <hr style="border:none;border-top:1px solid #eee;margin:28px 0">
+      <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 12px">
+        Download the Happy School app to get started:
+      </p>
+      <a href="https://play.google.com/store/apps/details?id=com.happyschoolculture.happy_school"
+         style="display:inline-block;text-decoration:none">
+        <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
+             alt="Get it on Google Play"
+             style="height:48px;border-radius:6px">
+      </a>
     </div>
     <div style="background:#fafafa;border-top:1px solid #eee;padding:18px 24px;text-align:center">
       <p style="color:#bbb;font-size:12px;margin:0">
