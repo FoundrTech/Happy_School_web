@@ -5,6 +5,8 @@ import { FiEye, FiEyeOff } from "react-icons/fi";
 import appIcon from "../assets/Images/appicon2.png";
 import toast, { Toaster } from "react-hot-toast";
 
+const normalizeString = (str: string = "") => str.toLowerCase().replace(/[\s-_]/g, "");
+
 function Login() {
   const nav = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,10 @@ function Login() {
         const data = await response.json();
 
         if (response.ok) {
-          if (data.role.toString().toLowerCase() === "principal") {
+          console.log(data.role);
+          const normalizedRole = normalizeString(data.role?.toString());
+
+          if (normalizedRole === "principal") {
             toast.success("Login successful");
             localStorage.setItem("authToken", data.jwtToken);
             localStorage.setItem("firebaseToken", data.firebaseToken);
@@ -45,7 +50,7 @@ function Login() {
             setTimeout(() => {
               nav("/dashboard");
             }, 1200);
-          } else if (data.role.toString().toLowerCase() === "counselor") {
+          } else if (normalizedRole === "counselor") {
             toast.success("Login successful");
             localStorage.setItem("authToken", data.jwtToken);
             localStorage.setItem("firebaseToken", data.firebaseToken);
@@ -58,8 +63,7 @@ function Login() {
               nav("/counselordashboard");
             }, 1200);
 
-          }
-          else if (data.role.toString().toLowerCase() === "co-ordinator") {
+          } else if (normalizedRole === "coordinator") {
             toast.success("Login successful");
             localStorage.setItem("authToken", data.jwtToken);
             localStorage.setItem("firebaseToken", data.firebaseToken);
@@ -67,7 +71,7 @@ function Login() {
             localStorage.setItem("role", data.role);
             localStorage.setItem("email", data.email);
             localStorage.setItem("school", data.school);
-            localStorage.setItem("wingId", data.wingId)
+            localStorage.setItem("wingId", data.wingId);
             setTimeout(() => {
               nav("/co-ordinator");
             }, 1200);
