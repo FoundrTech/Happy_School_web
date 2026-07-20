@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import dotenv from "dotenv";
 import { auth } from "firebase-admin";
 
@@ -59,23 +59,14 @@ router.post(
                 message: "Password reset email sent successfully",
                 uid: userRecord.uid,
             });
-        } catch (error: unknown) {
-            if (error instanceof AxiosError) {
-                const errorMessage =
-                    (error.response?.data as any)?.error?.message ||
-                    error.message ||
-                    "Firebase request failed";
+        } catch (error: any) {
+            const errorMessage =
+                error.response?.data?.error?.message ||
+                error.message ||
+                "Firebase request failed";
 
-                res.status(400).json({ error: errorMessage });
-                return;
-            }
-
-            if (error instanceof Error) {
-                res.status(500).json({ error: error.message });
-                return;
-            }
-
-            res.status(500).json({ error: "Unknown error occurred" });
+            res.status(400).json({ error: errorMessage });
+            return;
         }
     }
 );

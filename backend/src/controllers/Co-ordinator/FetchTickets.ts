@@ -8,7 +8,7 @@ export const FetchTickets = async (
   res: Response
 ): Promise<void> => {
   const { wingId } = req.params;
-  const { teacher, status, fromDate, toDate, category } = req.query;
+  const { teacher, status, fromDate, toDate, category, academicYear } = req.query;
 
   if (!wingId) {
     res.status(400).json({ error: "Wing ID is required" });
@@ -76,7 +76,42 @@ export const FetchTickets = async (
         t.email && allowedEmails.has(t.email.toLowerCase())
       );
 
-    // 5️⃣ Optional filters
+    // 5️⃣ Academic year filter (takes precedence over manual fromDate/toDate)
+    if (academicYear) {
+      const match = String(academicYear).match(/^(\d{4})-(\d{2,4})$/);
+      if (match) {
+        const startYear = parseInt(match[1], 10);
+        const suffix = match[2];
+        const endYear = suffix.length === 2
+          ? Math.floor(startYear / 100) * 100 + parseInt(suffix, 10)
+          : parseInt(suffix, 10);
+        const from = new Date(startYear, 5, 1, 0, 0, 0, 0).getTime();
+        const to = new Date(endYear, 4, 31, 23, 59, 59, 999).getTime();
+
+        tickets = tickets.filter((t: any) => {
+          if (!t.timestamp) return false;
+          let ms: number | null = null;
+          if (typeof t.timestamp === "object" && "_seconds" in t.timestamp) {
+            ms = t.timestamp._seconds * 1000;
+          } else if (typeof t.timestamp === "string" || typeof t.timestamp === "number") {
+            ms = new Date(t.timestamp).getTime();
+          }
+          return ms !== null && !isNaN(ms) && ms >= from && ms <= to;
+        });
+      }
+    } else if (fromDate || toDate) {
+      tickets = tickets.filter((t: any) => {
+        if (!t.timestamp) return false;
+
+        const time = new Date(t.timestamp).getTime();
+        const from = fromDate ? new Date(String(fromDate)).getTime() : -Infinity;
+        const to = toDate ? new Date(String(toDate)).getTime() : Infinity;
+
+        return time >= from && time <= to;
+      });
+    }
+
+    // 6️⃣ Optional filters
     if (teacher) {
       tickets = tickets.filter(
         (t: any) =>
@@ -98,23 +133,12 @@ export const FetchTickets = async (
       );
     }
 
-    if (fromDate || toDate) {
-      tickets = tickets.filter((t: any) => {
-        if (!t.timestamp) return false;
-
-        const time = new Date(t.timestamp).getTime();
-        const from = fromDate ? new Date(String(fromDate)).getTime() : -Infinity;
-        const to = toDate ? new Date(String(toDate)).getTime() : Infinity;
-
-        return time >= from && time <= to;
-      });
-    }
-
-    // 6️⃣ Response
+    // 7️⃣ Response
     res.status(200).json({
       message: "Tickets fetched successfully",
       wingId,
       school,
+      academicYear: academicYear || "all",
       totalTickets: tickets.length,
       tickets,
     });

@@ -1,4 +1,6 @@
 import React from "react";
+import { Select } from "antd";
+import { Calendar } from "lucide-react";
 import { getAcademicYears } from "../utils/academicYear";
 
 interface AcademicYearFilterProps {
@@ -15,28 +17,21 @@ const AcademicYearFilter: React.FC<AcademicYearFilterProps> = ({
   const years = getAcademicYears();
 
   return (
-    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
-      <span className="text-sm font-semibold text-gray-600 shrink-0">
+    <div className={`flex items-center gap-2.5 ${className}`}>
+      <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 shrink-0">
+        <Calendar className="w-4 h-4 text-orange-500" />
         Academic Year:
       </span>
-      <div className="flex flex-wrap gap-2">
-        {years.map((year) => {
-          const isActive = selectedYear === year;
-          return (
-            <button
-              key={year}
-              onClick={() => onChange(year)}
-              className={`px-3 py-1 rounded-full text-sm font-medium border transition-all duration-150 ${
-                isActive
-                  ? "bg-orange-500 text-white border-orange-500 shadow-sm"
-                  : "bg-white text-gray-600 border-gray-300 hover:border-orange-400 hover:text-orange-500"
-              }`}
-            >
-              {year}
-            </button>
-          );
-        })}
-      </div>
+      <Select
+        value={selectedYear}
+        onChange={onChange}
+        className="w-40"
+        size="middle"
+        options={years.map((year) => ({
+          label: year,
+          value: year,
+        }))}
+      />
     </div>
   );
 };
