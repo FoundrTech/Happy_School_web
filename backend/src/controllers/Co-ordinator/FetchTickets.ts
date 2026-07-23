@@ -62,7 +62,6 @@ export const FetchTickets = async (
       .collection("Tickets")
       .doc(school)
       .collection(school)
-      .where("privacy", "==", false)
       .get();
 
     let tickets = ticketQuerySnap.docs
@@ -71,6 +70,8 @@ export const FetchTickets = async (
         school,
         ...doc.data(),
       }))
+      // ✅ Allow tickets where privacy is false OR undefined/not set (only exclude explicit privacy === true)
+      .filter((t: any) => t.privacy !== true)
       // ✅ Match ticket email with teacher/coordinator emails
       .filter((t: any) =>
         t.email && allowedEmails.has(t.email.toLowerCase())

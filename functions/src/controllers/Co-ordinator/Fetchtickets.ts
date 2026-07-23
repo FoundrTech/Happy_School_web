@@ -62,7 +62,6 @@ export const fetchtickets = async (req: Request, res: Response): Promise<void> =
       .collection("Tickets")
       .doc(school)
       .collection(school)
-      .where("privacy", "==", false)
       .get();
 
     let tickets = ticketQuerySnap.docs
@@ -71,6 +70,7 @@ export const fetchtickets = async (req: Request, res: Response): Promise<void> =
         school,
         ...doc.data(),
       }))
+      .filter((t: any) => t.privacy !== true)
       .filter((t: any) =>
         t.email && allowedEmails.has(t.email.toLowerCase())
       );

@@ -120,27 +120,29 @@ router.get("/all-tickets/:email", async (req: Request, res: Response) => {
     const ticketSubColRef = db
       .collection("Tickets")
       .doc(school)
-      .collection(school).where("privacy", "==", false);
+      .collection(school);
 
     // Fetch all tickets without ordering first (to handle mixed timestamp formats)
     const ticketsSnap = await ticketSubColRef.get();
 
-    let tickets = ticketsSnap.docs.map((doc) => {
-      const data = doc.data();
+    let tickets = ticketsSnap.docs
+      .map((doc) => {
+        const data = doc.data();
 
-      // Convert string timestamps to Firestore Timestamps
-      if (data.timestamp && typeof data.timestamp === "string") {
-        const convertedTimestamp = convertStringToTimestamp(data.timestamp);
-        if (convertedTimestamp) {
-          data.timestamp = convertedTimestamp;
+        // Convert string timestamps to Firestore Timestamps
+        if (data.timestamp && typeof data.timestamp === "string") {
+          const convertedTimestamp = convertStringToTimestamp(data.timestamp);
+          if (convertedTimestamp) {
+            data.timestamp = convertedTimestamp;
+          }
         }
-      }
 
-      return {
-        id: doc.id,
-        ...data,
-      };
-    });
+        return {
+          id: doc.id,
+          ...data,
+        };
+      })
+      .filter((t: any) => t.privacy !== true);
 
     // Sort tickets by timestamp in descending order (newest first)
     tickets.sort((a, b) => {

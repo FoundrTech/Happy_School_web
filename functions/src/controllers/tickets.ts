@@ -41,10 +41,12 @@ export const ticket = async (req: Request, res: Response): Promise<void> => {
       .orderBy("timestamp", "desc")
       .get();
 
-    const tickets = ticketsSnap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const tickets = ticketsSnap.docs
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      .filter((t: any) => t.privacy !== true);
 
     res.status(200).json({
       message: "Tickets fetched successfully",

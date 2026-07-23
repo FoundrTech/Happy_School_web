@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import admin from "../config/firebaseAdmin";
 import dotenv from "dotenv";
+import { getAcademicYearRange, timestampToMs } from "../utils/academicYear";
 
 dotenv.config();
 const db = admin.firestore();
@@ -10,8 +11,8 @@ export const TicketController = async (
   res: Response
 ): Promise<void> => {
   const email: string = req.params.email;
-  const { teacher, status, fromDate, toDate, category } = req.query;
-  console.log(req.query);
+  const { teacher, status, fromDate, toDate, category, academicYear } = req.query;
+
   try {
     const userInfoSnap = await db
       .collection("Users")
@@ -37,14 +38,33 @@ export const TicketController = async (
     const ticketSubColRef = db
       .collection("Tickets")
       .doc(school)
-      .collection(school)
-      .where("privacy", "==", false);
+      .collection(school);
     const ticketsSnap = await ticketSubColRef.get();
 
-    let tickets = ticketsSnap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    let tickets = ticketsSnap.docs
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      .filter((t: any) => t.privacy !== true);
+
+    if (academicYear) {
+      const range = getAcademicYearRange(String(academicYear));
+      if (range) {
+        tickets = tickets.filter((t: any) => {
+          const ms = timestampToMs(t.timestamp);
+          return ms !== null && ms >= range.from.getTime() && ms <= range.to.getTime();
+        });
+      }
+    } else if (fromDate || toDate) {
+      tickets = tickets.filter((t: any) => {
+        const ms = timestampToMs(t.timestamp);
+        if (ms === null) return false;
+        const from = fromDate ? new Date(String(fromDate)).getTime() : -Infinity;
+        const to = toDate ? new Date(String(toDate)).getTime() : Infinity;
+        return ms >= from && ms <= to;
+      });
+    }
 
     if (teacher) {
       tickets = tickets.filter(
@@ -63,20 +83,6 @@ export const TicketController = async (
         (t) =>
           (t as any).category?.toLowerCase() === String(category).toLowerCase()
       );
-    }
-
-    if (fromDate || toDate) {
-      tickets = tickets.filter((t) => {
-        const timeStr = (t as any).timestamp;
-        const time = new Date(timeStr).getTime();
-
-        const from = fromDate
-          ? new Date(String(fromDate)).getTime()
-          : -Infinity;
-        const to = toDate ? new Date(String(toDate)).getTime() : Infinity;
-
-        return time >= from && time <= to;
-      });
     }
 
     res.status(200).json({
