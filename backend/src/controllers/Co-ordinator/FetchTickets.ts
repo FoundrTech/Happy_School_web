@@ -134,6 +134,16 @@ export const FetchTickets = async (
       );
     }
 
+    tickets.sort((a: any, b: any) => {
+      const getMs = (t: any) => {
+        if (!t?.timestamp) return 0;
+        if (typeof t.timestamp === "object" && "_seconds" in t.timestamp) return t.timestamp._seconds * 1000;
+        const ms = new Date(t.timestamp).getTime();
+        return isNaN(ms) ? 0 : ms;
+      };
+      return getMs(b) - getMs(a);
+    });
+
     // 7️⃣ Response
     res.status(200).json({
       message: "Tickets fetched successfully",

@@ -47,6 +47,8 @@ export const raiseticket = async (
       return;
     }
 
+    const status = req.body.isDraft || req.body.status === "Draft" ? "Draft" : (req.body.status || "Ticket Raised");
+
     const ticketData: any = {
       ticketText: ticketText || "",
       userName: userName || "",
@@ -54,11 +56,12 @@ export const raiseticket = async (
       uid,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       reply: "",
-      status: "Ticket Raised",
+      status,
       tocken: 0,
       school,
       contributors: contributors || [],
       category,
+      privacy: req.body.privacy ?? false,
     };
 
     if (category === "Teacher") {

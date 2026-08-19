@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import admin from "../../config/firebaseAdmin";
 import dotenv from "dotenv";
+import { timestampToMs } from "../../utils/academicYear";
 
 dotenv.config();
 const db = admin.firestore();
@@ -74,18 +75,24 @@ export const CounselorTicketController = async (
 
     if (fromDate || toDate) {
       tickets = tickets.filter((t) => {
-        const timeStr = (t as any).timestamp;
-        if (!timeStr) return false;
-        const time = new Date(timeStr).getTime();
+        const ms = timestampToMs((t as any).timestamp);
+        if (ms === null) return false;
 
         const from = fromDate
           ? new Date(String(fromDate)).getTime()
           : -Infinity;
         const to = toDate ? new Date(String(toDate)).getTime() : Infinity;
 
-        return time >= from && time <= to;
+        return ms >= from && ms <= to;
       });
     }
+
+    tickets.sort((a: any, b: any) => {
+      const msA = timestampToMs(a.timestamp) ?? 0;
+      const msB = timestampToMs(b.timestamp) ?? 0;
+      return msB - msA;
+    });
+
     res.status(200).json({
       message: "Tickets fetched successfully",
       totalTickets: tickets.length,

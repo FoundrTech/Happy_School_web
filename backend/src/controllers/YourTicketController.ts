@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import admin from "../config/firebaseAdmin";
 import dotenv from "dotenv";
+import { timestampToMs } from "../utils/academicYear";
 
 dotenv.config();
 
@@ -41,16 +42,20 @@ export const YourTicketController = async (
       .doc(school)
       .collection(school);
 
-    const ticketsSnap = await ticketSubColRef
-      .orderBy("timestamp", "desc")
-      .get();
+    const ticketsSnap = await ticketSubColRef.get();
 
-    const tickets = ticketsSnap.docs
+    let tickets = ticketsSnap.docs
       .map((doc) => ({
         id: doc.id,
         ...(doc.data() as any),
       }))
-      .filter((doc) => doc.privacy === false || doc.privacy === undefined);
+      .filter((doc) => doc.privacy === false || doc.privacy === undefined || doc.email?.toLowerCase() === email.toLowerCase());
+
+    tickets.sort((a: any, b: any) => {
+      const msA = timestampToMs(a.timestamp) ?? 0;
+      const msB = timestampToMs(b.timestamp) ?? 0;
+      return msB - msA;
+    });
 
     res.status(200).json({
       message: "Tickets fetched successfully",

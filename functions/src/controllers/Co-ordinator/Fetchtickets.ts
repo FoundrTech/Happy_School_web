@@ -109,6 +109,12 @@ export const fetchtickets = async (req: Request, res: Response): Promise<void> =
       );
     }
 
+    tickets.sort((a: any, b: any) => {
+      const msA = timestampToMs(a.timestamp) ?? 0;
+      const msB = timestampToMs(b.timestamp) ?? 0;
+      return msB - msA;
+    });
+
     // 7️⃣ Response
     res.status(200).json({
       message: "Tickets fetched successfully",

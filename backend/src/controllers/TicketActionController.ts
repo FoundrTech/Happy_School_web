@@ -7,7 +7,7 @@ export const EditTicketController = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const { school, ticketId, ticketText, category, status, teacher, contributors, oneononesessions } = req.body;
+  const { school, ticketId, ticketText, category, status, teacher, contributors, oneononesessions, privacy } = req.body;
 
   if (!school || !ticketId) {
     res.status(400).json({ error: "Missing school or ticketId parameter" });
@@ -34,6 +34,7 @@ export const EditTicketController = async (
     if (teacher !== undefined) updateData.teacher = teacher;
     if (contributors !== undefined) updateData.contributors = contributors;
     if (oneononesessions !== undefined) updateData.oneononesessions = oneononesessions;
+    if (privacy !== undefined) updateData.privacy = privacy;
 
     await ticketRef.update(updateData);
 

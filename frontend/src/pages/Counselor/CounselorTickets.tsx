@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Table, Tag, Typography, Spin, Space, Select, Tooltip, Modal, Popconfirm, Button, message, Input } from "antd";
 import { useNavigate } from "react-router-dom";
-import { FilterOutlined, PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined } from "@ant-design/icons";
+import { FilterOutlined, PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined, SearchOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 dayjs.extend(customParseFormat);
@@ -52,6 +52,7 @@ function CounselorTickets() {
   const [selectedTeacher, setSelectedTeacher] = useState("");
   const [selectedTeacherEmail, setSelectedTeacherEmail] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Edit / Delete state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -275,6 +276,8 @@ function CounselorTickets() {
             ? "orange"
             : status === "Resolved"
             ? "green"
+            : status === "Draft"
+            ? "gold"
             : "blue";
         return <Tag color={color}>{status || "Pending"}</Tag>;
       },
@@ -460,6 +463,8 @@ function CounselorTickets() {
         ? "orange"
         : status === "Resolved"
         ? "green"
+        : status === "Draft"
+        ? "gold"
         : "blue";
     };
 
@@ -641,6 +646,35 @@ function CounselorTickets() {
     );
   };
 
+  const displayTickets = tickets
+    .filter((t) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      const nameMatch =
+        t.userName?.toLowerCase().includes(q) ||
+        (t as any).studentName?.toLowerCase().includes(q) ||
+        (t as any).student?.toLowerCase().includes(q);
+      const textMatch = t.ticketText?.toLowerCase().includes(q);
+      return nameMatch || textMatch;
+    })
+    .sort((a, b) => {
+      const getMs = (item: any) => {
+        if (!item?.timestamp) return 0;
+        if (typeof item.timestamp === "object" && item.timestamp._seconds) {
+          return item.timestamp._seconds * 1000;
+        }
+        if (typeof item.timestamp === "string") {
+          const parsed = dayjs(item.timestamp, "DD/MM/YYYY hh:mm A");
+          if (parsed.isValid()) return parsed.valueOf();
+          const d = new Date(item.timestamp).getTime();
+          return isNaN(d) ? 0 : d;
+        }
+        if (typeof item.timestamp === "number") return item.timestamp;
+        return 0;
+      };
+      return getMs(b) - getMs(a);
+    });
+
   return (
     <div className="min-h-screen p-3 sm:p-4 md:p-6">
       {/* Header */}
@@ -649,7 +683,7 @@ function CounselorTickets() {
           <Title level={2} className="text-orange-600 m-0 text-xl sm:text-2xl">
             School Tickets{" "}
             <span className="text-gray-500 text-base sm:text-lg">
-              ({tickets.length})
+              ({displayTickets.length})
             </span>
           </Title>
           <div className="flex-1" />
@@ -672,6 +706,18 @@ function CounselorTickets() {
           </div>
         </div>
 
+        {/* Search Bar */}
+        <div className="relative w-full">
+          <Input
+            prefix={<SearchOutlined className="text-gray-400 mr-1" />}
+            placeholder="Search by student or user name..."
+            allowClear
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="rounded-xl py-1.5 border-gray-300 hover:border-orange-400 focus:border-orange-500 shadow-sm"
+          />
+        </div>
+
         {showFilters && (
           <div className="relative sm:absolute sm:top-12 sm:right-0 mt-2 w-full sm:w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4">
             <div className="mb-4">
@@ -683,6 +729,7 @@ function CounselorTickets() {
               >
                 <option value="">All</option>
                 <option value="ticketraised">Ticket Raised</option>
+                <option value="draft">Draft</option>
                 <option value="reply">Reply</option>
                 <option value="chat">Chat</option>
                 <option value="meeting">Meeting</option>
@@ -837,7 +884,7 @@ function CounselorTickets() {
           <div className="hidden lg:block">
             <Table
               columns={columns}
-              dataSource={tickets}
+              dataSource={displayTickets}
               rowKey="id"
               pagination={{ pageSize: 8 }}
               bordered
@@ -852,12 +899,12 @@ function CounselorTickets() {
 
           {/* Mobile Card View */}
           <div className="lg:hidden">
-            {tickets.length === 0 ? (
+            {displayTickets.length === 0 ? (
               <div className="text-center py-10 text-gray-500">
                 No tickets found
               </div>
             ) : (
-              tickets.map((ticket) => (
+              displayTickets.map((ticket) => (
                 <TicketCard key={ticket.id} ticket={ticket} />
               ))
             )}
@@ -916,6 +963,7 @@ function CounselorTickets() {
               onChange={setEditStatus}
               options={[
                 { label: "Ticket Raised", value: "Ticket Raised" },
+                { label: "Draft", value: "Draft" },
                 { label: "In Progress", value: "In Progress" },
                 { label: "Resolved", value: "Resolved" },
               ]}

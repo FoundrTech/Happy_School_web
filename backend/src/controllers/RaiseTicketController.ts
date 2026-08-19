@@ -45,6 +45,8 @@ const uid = userRecord.uid;
       return;
     }
 
+    const status = req.body.isDraft || req.body.status === "Draft" ? "Draft" : (req.body.status || "Ticket Raised");
+
     const ticketData: any = {
       ticketText: ticketText || "",
       userName: userName || "",
@@ -53,11 +55,12 @@ const uid = userRecord.uid;
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       oneononesessions: 0,
       reply: "",
-      status: "Ticket Raised",
+      status,
       tocken: 0,
       school,
       contributors: contributors || [],
       category,
+      privacy: req.body.privacy ?? false,
     };
 
     if (category === "Teacher") {

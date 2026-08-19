@@ -37,16 +37,24 @@ export const ticket = async (req: Request, res: Response): Promise<void> => {
       .doc(school)
       .collection(school);
 
-    const ticketsSnap = await ticketSubColRef
-      .orderBy("timestamp", "desc")
-      .get();
+    const ticketsSnap = await ticketSubColRef.get();
 
     const tickets = ticketsSnap.docs
       .map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }))
-      .filter((t: any) => t.privacy !== true);
+      .filter((t: any) => t.privacy !== true || t.email?.toLowerCase() === email.toLowerCase());
+
+    tickets.sort((a: any, b: any) => {
+      const getMs = (item: any) => {
+        if (!item?.timestamp) return 0;
+        if (typeof item.timestamp === "object" && item.timestamp._seconds) return item.timestamp._seconds * 1000;
+        const ms = new Date(item.timestamp).getTime();
+        return isNaN(ms) ? 0 : ms;
+      };
+      return getMs(b) - getMs(a);
+    });
 
     res.status(200).json({
       message: "Tickets fetched successfully",
@@ -60,7 +68,7 @@ export const ticket = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const editTicket = async (req: Request, res: Response): Promise<void> => {
-  const {school, ticketId, ticketText, category, status, teacher, contributors, oneononesessions} = req.body;
+  const {school, ticketId, ticketText, category, status, teacher, contributors, oneononesessions, privacy} = req.body;
 
   if (!school || !ticketId) {
     res.status(400).json({error: "Missing school or ticketId parameter"});
@@ -87,6 +95,7 @@ export const editTicket = async (req: Request, res: Response): Promise<void> => 
     if (teacher !== undefined) updateData.teacher = teacher;
     if (contributors !== undefined) updateData.contributors = contributors;
     if (oneononesessions !== undefined) updateData.oneononesessions = oneononesessions;
+    if (privacy !== undefined) updateData.privacy = privacy;
 
     await ticketRef.update(updateData);
 

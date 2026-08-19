@@ -136,9 +136,28 @@ function Tickets() {
     }
   };
 
-  const filteredTickets = tickets.filter((ticket) =>
-    ticket.userName?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTickets = tickets
+    .filter((ticket) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      const nameMatch =
+        ticket.userName?.toLowerCase().includes(q) ||
+        (ticket as any).studentName?.toLowerCase().includes(q) ||
+        (ticket as any).student?.toLowerCase().includes(q);
+      const textMatch = ticket.ticketText?.toLowerCase().includes(q);
+      return nameMatch || textMatch;
+    })
+    .sort((a, b) => {
+      const getMs = (item: any) => {
+        if (!item?.timestamp) return 0;
+        if (typeof item.timestamp === "object" && item.timestamp._seconds) {
+          return item.timestamp._seconds * 1000;
+        }
+        const d = new Date(item.timestamp).getTime();
+        return isNaN(d) ? 0 : d;
+      };
+      return getMs(b) - getMs(a);
+    });
 
   const handleTicketClick = (ticket: Ticket) => {
     navigate(`/showticket/${ticket.id}?school=${typeof ticket.school === 'object' ? ticket.school.SchoolName : ticket.school}`, { state: { ticket } });
@@ -166,7 +185,7 @@ function Tickets() {
         <input
           type="text"
           className="bg-white rounded-3xl w-[30%] h-9 pl-10 pr-4 text-sm focus:outline-none border border-gray-500"
-          placeholder="Search by teacher name"
+          placeholder="Search by student or user name..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -354,6 +373,7 @@ function Tickets() {
               onChange={setEditStatus}
               options={[
                 { label: "Ticket Raised", value: "Ticket Raised" },
+                { label: "Draft", value: "Draft" },
                 { label: "In Progress", value: "In Progress" },
                 { label: "Resolved", value: "Resolved" },
               ]}

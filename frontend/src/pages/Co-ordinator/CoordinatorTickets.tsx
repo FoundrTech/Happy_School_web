@@ -17,7 +17,7 @@ import {
   Modal,
   Space,
 } from "antd";
-import { PlusOutlined, FilterOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined } from "@ant-design/icons";
+import { PlusOutlined, FilterOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined, SearchOutlined } from "@ant-design/icons";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -50,6 +50,7 @@ const CoordinatorTickets = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>();
   const [selectedCategory, setSelectedCategory] = useState<string>();
   const [selectedYear, setSelectedYear] = useState<string>(getCurrentAcademicYear());
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Edit / Delete state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -224,18 +225,41 @@ const CoordinatorTickets = () => {
     }
   };
 
+  const displayTickets = tickets
+    .filter((t) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      const nameMatch =
+        (t as any).userName?.toLowerCase().includes(q) ||
+        (t as any).studentName?.toLowerCase().includes(q) ||
+        (t as any).student?.toLowerCase().includes(q);
+      const textMatch = t.ticketText?.toLowerCase().includes(q);
+      return nameMatch || textMatch;
+    })
+    .sort((a, b) => {
+      const getMs = (item: any) => {
+        if (!item?.timestamp) return 0;
+        if (typeof item.timestamp === "object" && item.timestamp._seconds) {
+          return item.timestamp._seconds * 1000;
+        }
+        if (typeof item.timestamp === "string") {
+          const parsed = dayjs(item.timestamp, "DD/MM/YYYY hh:mm A");
+          if (parsed.isValid()) return parsed.valueOf();
+          const d = new Date(item.timestamp).getTime();
+          return isNaN(d) ? 0 : d;
+        }
+        if (typeof item.timestamp === "number") return item.timestamp;
+        return 0;
+      };
+      return getMs(b) - getMs(a);
+    });
+
   return (
-    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-        <div>
-          <Title level={3} style={{ margin: 0 }}>
-            Coordinator Tickets
-          </Title>
-          <span className="text-gray-500 text-sm">
-            Manage tickets for your wing
-          </span>
-        </div>
+    <div className="p-4 sm:p-6 min-h-screen bg-gray-50">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
+        <Title level={2} style={{ color: "#fa8c16", margin: 0 }}>
+          Wing Tickets ({displayTickets.length})
+        </Title>
 
         <div className="flex items-center gap-2">
           <Button
@@ -256,12 +280,21 @@ const CoordinatorTickets = () => {
         </div>
       </div>
 
-      {/* ACADEMIC YEAR FILTER */}
-      <AcademicYearFilter
-        selectedYear={selectedYear}
-        onChange={setSelectedYear}
-        className="mb-4"
-      />
+      {/* SEARCH BAR & ACADEMIC YEAR FILTER */}
+      <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
+        <Input
+          prefix={<SearchOutlined className="text-gray-400 mr-1" />}
+          placeholder="Search by student or user name..."
+          allowClear
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="rounded-xl py-1.5 border-gray-300 hover:border-orange-400 focus:border-orange-500 shadow-sm flex-1"
+        />
+        <AcademicYearFilter
+          selectedYear={selectedYear}
+          onChange={setSelectedYear}
+        />
+      </div>
 
       {/* STATUS / CATEGORY FILTERS */}
       {showFilters && (
@@ -294,10 +327,10 @@ const CoordinatorTickets = () => {
       {isMobile ? (
         loading ? (
           <Spin />
-        ) : tickets.length === 0 ? (
+        ) : displayTickets.length === 0 ? (
           <p>No tickets found for {selectedYear}.</p>
         ) : (
-          tickets.map((t) => (
+          displayTickets.map((t) => (
             <Card
               key={t.id}
               className="mb-3 cursor-pointer"
@@ -445,6 +478,8 @@ const CoordinatorTickets = () => {
                       ? "green"
                       : status === "Ticket Raised"
                       ? "orange"
+                      : status === "Draft"
+                      ? "gold"
                       : "blue"
                   }
                 >
@@ -556,7 +591,7 @@ const CoordinatorTickets = () => {
               ),
             },
           ]}
-          dataSource={tickets}
+          dataSource={displayTickets}
           rowKey="id"
           loading={loading}
           locale={{ emptyText: `No tickets found for ${selectedYear}` }}
@@ -660,6 +695,7 @@ const CoordinatorTickets = () => {
               onChange={setEditStatus}
               options={[
                 { label: "Ticket Raised", value: "Ticket Raised" },
+                { label: "Draft", value: "Draft" },
                 { label: "In Progress", value: "In Progress" },
                 { label: "Resolved", value: "Resolved" },
               ]}

@@ -88,6 +88,17 @@ export const counselorticketcontroller = async (
         return time >= from && time <= to;
       });
     }
+
+    tickets.sort((a: any, b: any) => {
+      const getMs = (item: any) => {
+        if (!item?.timestamp) return 0;
+        if (typeof item.timestamp === "object" && item.timestamp._seconds) return item.timestamp._seconds * 1000;
+        const ms = new Date(item.timestamp).getTime();
+        return isNaN(ms) ? 0 : ms;
+      };
+      return getMs(b) - getMs(a);
+    });
+
     res.status(200).json({
       message: "Tickets fetched successfully",
       totalTickets: tickets.length,

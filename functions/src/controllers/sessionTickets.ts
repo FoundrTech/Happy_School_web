@@ -142,7 +142,7 @@ router.get("/all-tickets/:email", async (req: Request, res: Response) => {
           ...data,
         };
       })
-      .filter((t: any) => t.privacy !== true);
+      .filter((t: any) => t.privacy !== true || t.email?.toLowerCase() === email.toLowerCase());
 
     // Sort tickets by timestamp in descending order (newest first)
     tickets.sort((a, b) => {

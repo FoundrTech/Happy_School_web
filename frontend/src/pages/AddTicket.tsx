@@ -123,6 +123,7 @@ function AddTicket() {
       contributors: Contributor[];
       selectedTeacher: TeacherMap | null;
       category: string;
+      isDraft?: boolean;
     },
     { resetForm, setSubmitting }: any
   ) => {
@@ -132,6 +133,7 @@ function AddTicket() {
       ticketText: values.ticketText,
       contributors: values.contributors,
       category: values.category,
+      status: values.isDraft ? "Draft" : "Ticket Raised",
     };
 
     // If category is Teacher, send teacher as a map with name and email
@@ -150,7 +152,7 @@ function AddTicket() {
       payload
     );
 
-    alert("✅ Ticket submitted successfully!");
+    alert(values.isDraft ? "✅ Ticket saved as draft!" : "✅ Ticket submitted successfully!");
     resetForm();
   } catch (err) {
     console.error("Submission Error:", err);
@@ -177,11 +179,12 @@ function AddTicket() {
           contributors: [],
           selectedTeacher: null as TeacherMap | null,
           category: "",
+          isDraft: false,
         }}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
       >
-        {({ isSubmitting, setFieldValue, setFieldTouched, values }) => (
+        {({ isSubmitting, setFieldValue, setFieldTouched, values, submitForm }) => (
           <Form>
             {/* Ticket Text */}
             <Field
@@ -349,14 +352,28 @@ function AddTicket() {
               />
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="mt-6 w-full bg-orange-500 text-white py-2 px-4 rounded-lg shadow hover:bg-orange-600 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? "Submitting..." : "Submit Ticket"}
-            </button>
+            {/* Submit & Save as Draft Buttons */}
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <button
+                type="submit"
+                onClick={() => setFieldValue("isDraft", false)}
+                disabled={isSubmitting}
+                className="flex-1 bg-orange-500 text-white py-2 px-4 rounded-lg shadow hover:bg-orange-600 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {isSubmitting ? "Submitting..." : "Submit Ticket"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFieldValue("isDraft", true);
+                  submitForm();
+                }}
+                disabled={isSubmitting}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 py-2 px-4 rounded-lg shadow-sm transition duration-200 font-medium disabled:opacity-50"
+              >
+                Save as Draft
+              </button>
+            </div>
 
             {/* Debug Info (remove in production) */}
           </Form>

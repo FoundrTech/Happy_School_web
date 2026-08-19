@@ -46,6 +46,8 @@ export const CounselorAddTicketController = async (
       return;
     }
 
+    const status = req.body.isDraft || req.body.status === "Draft" ? "Draft" : (req.body.status || "Ticket Raised");
+
     const ticketData: any = {
       ticketText: ticketText || "",
       userName: userName || "",
@@ -53,10 +55,10 @@ export const CounselorAddTicketController = async (
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       oneononesessions: 0,
       reply: "",
-      status: "Ticket Raised",
+      status,
       tocken: 0,
       school,
-      privacy,
+      privacy: privacy ?? false,
       contributors: contributors || [],
       category,
       wingId: wingId,

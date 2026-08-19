@@ -85,6 +85,12 @@ export const TicketController = async (
       );
     }
 
+    tickets.sort((a: any, b: any) => {
+      const msA = timestampToMs(a.timestamp) ?? 0;
+      const msB = timestampToMs(b.timestamp) ?? 0;
+      return msB - msA;
+    });
+
     res.status(200).json({
       message: "Tickets fetched successfully",
       ticketCount: tickets.length,
