@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {Request, Response} from "express";
 import admin from "../../config/firebase";
+import {getAcademicYearRange} from "../../utils/academicYear";
 const db = admin.firestore();
 
 export const counselorticketcontroller = async (
@@ -8,7 +9,7 @@ export const counselorticketcontroller = async (
   res: Response
 ): Promise<void> => {
   const email: string = req.params.email;
-  const {teacher, status, fromDate, toDate, category} = req.query;
+  const {teacher, status, fromDate, toDate, category, academicYear} = req.query;
 
   try {
     const userInfoSnap = await db
@@ -51,7 +52,8 @@ export const counselorticketcontroller = async (
       })
     );
 
-    let tickets = allTicketsArrays.flat();
+    let tickets = allTicketsArrays.flat()
+      .filter((t: any) => t.privacy !== true || t.email?.toLowerCase() === email.toLowerCase());
 
     if (teacher) {
       tickets = tickets.filter(
@@ -74,7 +76,20 @@ export const counselorticketcontroller = async (
       );
     }
 
-    if (fromDate || toDate) {
+    if (academicYear) {
+      const range = getAcademicYearRange(String(academicYear));
+      if (range) {
+        tickets = tickets.filter((t: any) => {
+          const timeStr = (t as any).timestamp;
+          if (!timeStr) return false;
+          const time = typeof timeStr === "object" && timeStr._seconds ?
+            timeStr._seconds * 1000 :
+            new Date(timeStr).getTime();
+          if (isNaN(time)) return false;
+          return time >= range.from.getTime() && time <= range.to.getTime();
+        });
+      }
+    } else if (fromDate || toDate) {
       tickets = tickets.filter((t: any) => {
         const timeStr = (t as any).timestamp;
         if (!timeStr) return false;

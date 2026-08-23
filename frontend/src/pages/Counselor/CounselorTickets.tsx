@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { FilterOutlined, PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined, SearchOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import { getCurrentAcademicYear } from "../../utils/academicYear";
+import AcademicYearFilter from "../../components/AcademicYearFilter";
 dayjs.extend(customParseFormat);
 const { Title } = Typography;
 
@@ -52,6 +54,8 @@ function CounselorTickets() {
   const [selectedTeacher, setSelectedTeacher] = useState("");
   const [selectedTeacherEmail, setSelectedTeacherEmail] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedYear, setSelectedYear] = useState<string>(getCurrentAcademicYear());
+  const [activeTab, setActiveTab] = useState<"all" | "created_by_you">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Edit / Delete state
@@ -209,13 +213,13 @@ function CounselorTickets() {
     const fetchFilteredTickets = async () => {
       setLoading(true);
       try {
-        const params = {
-          status: selectedStatus || undefined,
-          teacher: selectedTeacherEmail || undefined,
-          fromDate: fromDate || undefined,
-          toDate: toDate || undefined,
-          category: selectedCategory || undefined,
-        };
+        const params: Record<string, string> = {};
+        if (selectedStatus) params.status = selectedStatus;
+        if (selectedTeacherEmail) params.teacher = selectedTeacherEmail;
+        if (selectedCategory) params.category = selectedCategory;
+        if (selectedYear) params.academicYear = selectedYear;
+        if (!selectedYear && fromDate) params.fromDate = fromDate;
+        if (!selectedYear && toDate) params.toDate = toDate;
 
         const response = await axios.get(
           `https://api-rim6ljimuq-uc.a.run.app/counselortickets/${email}`,
@@ -240,6 +244,7 @@ function CounselorTickets() {
     toDate,
     selectedCategory,
     selectedTeacherEmail,
+    selectedYear,
   ]);
 
   useEffect(() => {
@@ -648,6 +653,13 @@ function CounselorTickets() {
 
   const displayTickets = tickets
     .filter((t) => {
+      if (activeTab === "created_by_you") {
+        const userEmail = email?.toLowerCase() || "";
+        return t.email?.toLowerCase() === userEmail;
+      }
+      return true;
+    })
+    .filter((t) => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       const nameMatch =
@@ -706,17 +718,48 @@ function CounselorTickets() {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative w-full">
-          <Input
-            prefix={<SearchOutlined className="text-gray-400 mr-1" />}
-            placeholder="Search by student or user name..."
-            allowClear
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="rounded-xl py-1.5 border-gray-300 hover:border-orange-400 focus:border-orange-500 shadow-sm"
-          />
+        {/* Tabs & Search Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+            <button
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === "all"
+                  ? "bg-white text-orange-600 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+              onClick={() => setActiveTab("all")}
+            >
+              All Tickets
+            </button>
+            <button
+              className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === "created_by_you"
+                  ? "bg-white text-orange-600 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+              onClick={() => setActiveTab("created_by_you")}
+            >
+              Your Tickets
+            </button>
+          </div>
+
+          <div className="relative flex-1">
+            <Input
+              prefix={<SearchOutlined className="text-gray-400 mr-1" />}
+              placeholder="Search by student or user name..."
+              allowClear
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="rounded-xl py-1.5 border-gray-300 hover:border-orange-400 focus:border-orange-500 shadow-sm"
+            />
+          </div>
         </div>
+
+        <AcademicYearFilter
+          selectedYear={selectedYear}
+          onChange={setSelectedYear}
+          className="mt-1"
+        />
 
         {showFilters && (
           <div className="relative sm:absolute sm:top-12 sm:right-0 mt-2 w-full sm:w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-4">
