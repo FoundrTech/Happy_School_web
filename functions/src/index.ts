@@ -7,6 +7,7 @@ import {onRequest} from "firebase-functions/v2/https";
 import cors from "cors";
 import loginRoutes from "./routers/loginroute";
 import {WEB_API_KEY, JWT_SECRET} from "./controllers/login"; // <- Import secrets
+import {RESEND_API_KEY} from "./controllers/createTeacher";
 import dashboardroute from "./routers/dashboard";
 import ticketroutes from "./routers/ticket";
 import teacherroutes from "./routers/teacher";
@@ -78,5 +79,5 @@ app.use("/co-ordinator", coordinatordashboard);
 app.use("/auth", passwordreset);
 app.use("/auth", createTeacher);
 
-export const api = onRequest({secrets: [WEB_API_KEY, JWT_SECRET]}, app);
+export const api = onRequest({secrets: [WEB_API_KEY, JWT_SECRET, RESEND_API_KEY]}, app);
 export const onBulkUpload = processBulkUpload;

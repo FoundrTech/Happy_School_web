@@ -4,11 +4,12 @@
 import { Router, Request, Response } from "express";
 import admin from "../config/firebase";
 import { Resend } from "resend";
+import { defineSecret } from "firebase-functions/params";
 import { WEB_API_KEY } from "./login";
 
 // ── Change sender to your verified Resend domain when ready ──────────────────
 const RESEND_FROM = "Happy School <info@happyschoolculture.com>";
-const resendClient = new Resend("re_6SQQ5ErB_MzGqamnMpsXshwiBdnNSzfvj");
+export const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 // ─────────────────────────────────────────────────────────────────────────────
 
 const db = admin.firestore();
@@ -74,7 +75,8 @@ function welcomeEmailHtml(
 router.post(
   "/create-teacher",
   async (req: Request, res: Response): Promise<void> => {
-    const { email, name, coordinator, department, school, coins } = req.body;
+    const { email, name, coordinator, department, school, coins, role } =
+      req.body;
 
     if (!email || !name || !school) {
       res.status(400).json({ error: "email, name, and school are required" });
@@ -82,6 +84,12 @@ router.post(
     }
 
     const normalizedEmail = (email as string).toLowerCase().trim();
+
+    // Normalize role. The web app stores/expects "co-ordinator" (with hyphen)
+    // for the coordinator wing lookup, while the app sends "coordinator".
+    const rawRole = (role as string | undefined)?.toLowerCase().trim();
+    const normalizedRole =
+      rawRole === "coordinator" ? "co-ordinator" : rawRole || "teacher";
 
     try {
       // 1. Create Firebase Auth user with a temporary random password
@@ -107,7 +115,7 @@ router.post(
         coordinator: coordinator || "",
         school,
         coins: coins ?? 0,
-        role: "teacher",
+        role: normalizedRole,
         phone: "",
         courses: [],
       };
@@ -116,7 +124,7 @@ router.post(
       batch.set(userInfoRef, userEntry);
       batch.set(schoolUserRef, {
         email: normalizedEmail,
-        role: "teacher",
+        role: normalizedRole,
         Name: name,
         coins: coins ?? 0,
       });
@@ -143,6 +151,7 @@ router.post(
         const resetLink = await admin
           .auth()
           .generatePasswordResetLink(normalizedEmail);
+        const resendClient = new Resend(RESEND_API_KEY.value());
         const {data, error: resendError} = await resendClient.emails.send({
           from: RESEND_FROM,
           to: normalizedEmail,

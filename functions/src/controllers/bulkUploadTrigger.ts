@@ -2,11 +2,11 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import admin from "../config/firebase";
 import axios from "axios";
 import { WEB_API_KEY } from "./login";
+import { RESEND_API_KEY } from "./createTeacher";
 import { Resend } from "resend";
 
 // ── Change sender to your verified Resend domain when ready ──────────────────
 const RESEND_FROM = "Happy School <info@happyschoolculture.com>";
-const resendClient = new Resend("re_6SQQ5ErB_MzGqamnMpsXshwiBdnNSzfvj");
 // ─────────────────────────────────────────────────────────────────────────────
 
 function bulkWelcomeEmailHtml(
@@ -69,7 +69,7 @@ const auth = admin.auth();
 export const processBulkUpload = onDocumentCreated(
   {
     document: "BulkUploads/{uploadId}",
-    secrets: [WEB_API_KEY],
+    secrets: [WEB_API_KEY, RESEND_API_KEY],
   },
   async (event) => {
     const snapshot = event.data;
@@ -118,6 +118,7 @@ export const processBulkUpload = onDocumentCreated(
         // ─── EMAIL: Resend (ACTIVE) ─────────────────────────────────────────
         try {
           const resetLink = await auth.generatePasswordResetLink(email);
+          const resendClient = new Resend(RESEND_API_KEY.value());
           await resendClient.emails.send({
             from: RESEND_FROM,
             to: email,
