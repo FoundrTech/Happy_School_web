@@ -72,6 +72,103 @@ function welcomeEmailHtml(
 </html>`;
 }
 
+function resetPasswordEmailHtml(name: string, resetLink: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
+  <div style="max-width:540px;margin:32px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+    <div style="background:#ea580c;padding:28px 24px;text-align:center">
+      <h1 style="color:#fff;margin:0;font-size:24px;letter-spacing:.5px">Happy School</h1>
+    </div>
+    <div style="padding:36px 32px">
+      <h2 style="margin-top:0;color:#1a1a1a;font-size:20px">Hi ${name},</h2>
+      <p style="color:#555;line-height:1.7;margin-top:8px">
+        We received a request to reset the password for your Happy School account.
+      </p>
+      <div style="text-align:center;margin:36px 0">
+        <a href="${resetLink}"
+           style="display:inline-block;background:#ea580c;color:#fff;text-decoration:none;
+                  padding:14px 36px;border-radius:8px;font-weight:bold;font-size:16px">
+          Reset Your Password →
+        </a>
+      </div>
+      <p style="color:#999;font-size:13px;line-height:1.6">
+        This link expires in <strong>1 hour</strong>.
+        If you didn't request this, you can safely ignore this email — your password won't change.
+      </p>
+    </div>
+    <div style="background:#fafafa;border-top:1px solid #eee;padding:18px 24px;text-align:center">
+      <p style="color:#bbb;font-size:12px;margin:0">© Happy School</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+router.post(
+  "/send-branded-reset-email",
+  async (req: Request, res: Response): Promise<void> => {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+
+    const normalizedEmail = (email as string).toLowerCase().trim();
+
+    try {
+      // Confirm the account exists before generating a link for it.
+      await auth.getUserByEmail(normalizedEmail);
+
+      // Best-effort personalization — fall back to the email address.
+      let name = normalizedEmail;
+      try {
+        const userInfoDoc = await db
+          .collection("Users")
+          .doc(normalizedEmail)
+          .collection("userinfo")
+          .doc("userinfo")
+          .get();
+        if (userInfoDoc.exists) {
+          name = userInfoDoc.data()?.Name || normalizedEmail;
+        }
+      } catch (nameErr: any) {
+        console.error("Failed to look up user name:", nameErr.message);
+      }
+
+      const resetLink = await auth.generatePasswordResetLink(normalizedEmail);
+      const resendClient = new Resend(RESEND_API_KEY.value());
+      const { data, error: resendError } = await resendClient.emails.send({
+        from: RESEND_FROM,
+        to: normalizedEmail,
+        subject: "Reset Your Happy School Password",
+        html: resetPasswordEmailHtml(name, resetLink),
+      });
+
+      if (resendError) {
+        console.error("Resend error:", JSON.stringify(resendError));
+        res.status(502).json({ error: "Failed to send reset email" });
+        return;
+      }
+
+      console.log("Password reset email sent, id:", data?.id);
+      res.status(200).json({ message: "Password reset email sent" });
+    } catch (err: any) {
+      if (err.code === "auth/user-not-found") {
+        // Don't reveal whether the email exists.
+        res.status(200).json({ message: "Password reset email sent" });
+        return;
+      }
+      console.error("Error sending password reset email:", err.message);
+      res
+        .status(500)
+        .json({ error: err.message || "Failed to send reset email" });
+    }
+  },
+);
+
 router.post(
   "/create-teacher",
   async (req: Request, res: Response): Promise<void> => {
